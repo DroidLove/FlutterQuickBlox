@@ -3,8 +3,8 @@ package com.example.flutterchatquickblox.utils
 import android.content.Context
 import android.content.SharedPreferences
 import android.text.TextUtils
+import com.example.flutterchatquickblox.MainActivity
 import com.quickblox.core.helper.StringifyArrayList
-import com.quickblox.sample.chat.kotlin.App
 import com.quickblox.users.model.QBUser
 
 private const val SHARED_PREFS_NAME = "qb"
@@ -16,7 +16,7 @@ private const val QB_USER_TAGS = "qb_user_tags"
 
 object SharedPrefsHelper {
     private var sharedPreferences: SharedPreferences =
-            App.instance.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
+            MainActivity.instance.getSharedPreferences(SHARED_PREFS_NAME, Context.MODE_PRIVATE)
 
     private fun save(key: String, value: Any?) {
         val editor = sharedPreferences.edit()

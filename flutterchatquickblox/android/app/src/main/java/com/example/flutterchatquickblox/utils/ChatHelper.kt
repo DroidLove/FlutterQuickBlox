@@ -2,6 +2,7 @@ package com.example.flutterchatquickblox.utils
 
 import android.os.Bundle
 import android.util.Log
+import com.example.flutterchatquickblox.R
 import com.quickblox.auth.session.QBSettings
 import com.quickblox.chat.QBChatService
 import com.quickblox.chat.QBRestChatService
@@ -20,11 +21,9 @@ import com.quickblox.core.exception.QBResponseException
 import com.quickblox.core.helper.StringifyArrayList
 import com.quickblox.core.request.QBPagedRequestBuilder
 import com.quickblox.core.request.QBRequestGetBuilder
-import com.quickblox.sample.chat.kotlin.*
 import com.quickblox.sample.chat.kotlin.utils.qb.*
 import com.quickblox.sample.chat.kotlin.utils.qb.callback.QbEntityCallbackTwoTypeWrapper
 import com.quickblox.sample.chat.kotlin.utils.qb.callback.QbEntityCallbackWrapper
-import com.quickblox.sample.chat.kotlin.utils.shortToast
 import com.quickblox.users.QBUsers
 import com.quickblox.users.model.QBUser
 import org.jivesoftware.smack.ConnectionListener
@@ -42,12 +41,22 @@ object ChatHelper {
     private val TAG = ChatHelper::class.java.simpleName
 
     private var qbChatService: QBChatService = QBChatService.getInstance()
+    const val USER_DEFAULT_PASSWORD = "quickblox"
+    const val CHAT_PORT = 5223
+    const val SOCKET_TIMEOUT = 300
+    const val KEEP_ALIVE: Boolean = true
+    const val USE_TLS: Boolean = true
+    const val AUTO_JOIN: Boolean = false
+    const val AUTO_MARK_DELIVERED: Boolean = true
+    const val RECONNECTION_ALLOWED: Boolean = true
+    const val ALLOW_LISTEN_NETWORK: Boolean = true
 
     init {
         QBSettings.getInstance().logLevel = LogLevel.DEBUG
         QBChatService.setDebugEnabled(true)
         QBChatService.setConfigurationBuilder(buildChatConfigs())
         qbChatService.setUseStreamManagement(true)
+        Log.e("Checking", "in")
     }
 
     private fun buildChatConfigs(): QBChatService.ConfigurationBuilder {
@@ -160,7 +169,7 @@ object ChatHelper {
 
     fun deleteDialog(qbDialog: QBChatDialog, callback: QBEntityCallback<Void>) {
         if (qbDialog.type == QBDialogType.PUBLIC_GROUP) {
-            shortToast(R.string.public_group_chat_cannot_be_deleted)
+//            shortToast(R.string.public_group_chat_cannot_be_deleted)
         } else {
             QBRestChatService.deleteDialog(qbDialog.dialogId, false).performAsync(QbEntityCallbackWrapper(callback))
         }

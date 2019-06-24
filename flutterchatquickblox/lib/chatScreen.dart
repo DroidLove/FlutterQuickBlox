@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class ChatWindow extends StatefulWidget {
   @override
@@ -10,6 +11,7 @@ class _ChatWindowState extends State<ChatWindow> {
 
   TextEditingController textEditingController;
   ScrollController scrollController;
+  String _batteryPercentage = 'Battery precentage';
 
   bool enableButton = false;
 
@@ -36,8 +38,10 @@ class _ChatWindowState extends State<ChatWindow> {
   void handleSendMessage() {
     var text = textEditingController.value.text;
     textEditingController.clear();
+    _getBatteryInformation();
+
     setState(() {
-      _messages.add(text);
+      _messages.add(text + " " + _batteryPercentage);
       enableButton = false;
     });
 
@@ -181,6 +185,22 @@ class _ChatWindowState extends State<ChatWindow> {
         ],
       ),
     );
+  }
+
+  static const batteryChannel = const MethodChannel('battery');
+
+  Future<void> _getBatteryInformation() async {
+    String batteryPercentage;
+    try {
+      var result = await batteryChannel.invokeMethod('getBatteryLevel');
+      batteryPercentage = 'Battery level at $result%';
+    } on PlatformException catch (e) {
+      batteryPercentage = "Failed to get battery level: '${e.message}'.";
+    }
+
+    setState(() {
+      _batteryPercentage = batteryPercentage;
+    });
   }
 }
 

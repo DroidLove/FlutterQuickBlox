@@ -2,10 +2,10 @@ package com.quickblox.sample.chat.kotlin.utils.qb
 
 import android.text.TextUtils
 import android.util.Log
+import com.example.flutterchatquickblox.utils.ChatHelper
 import com.quickblox.chat.model.QBChatDialog
 import com.quickblox.chat.model.QBDialogType
 import com.quickblox.chat.utils.DialogUtils
-import com.quickblox.sample.chat.kotlin.utils.chat.ChatHelper
 import com.quickblox.users.model.QBUser
 import java.util.*
 import kotlin.collections.ArrayList

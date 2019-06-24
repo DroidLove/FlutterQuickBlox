@@ -1,4 +1,4 @@
-package com.quickblox.sample.chat.kotlin.utils.qb
+package com.example.flutterchatquickblox.utils.qb
 
 
 interface PaginationHistoryListener {

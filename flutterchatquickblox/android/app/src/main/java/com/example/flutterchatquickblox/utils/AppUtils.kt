@@ -1,4 +1,4 @@
-package com.example.flutterchatquickblox
+package com.example.flutterchatquickblox.utils
 
 import android.util.Log
 
