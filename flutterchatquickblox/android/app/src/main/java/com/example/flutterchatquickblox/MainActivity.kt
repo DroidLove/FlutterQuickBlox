@@ -17,6 +17,7 @@ import io.flutter.app.FlutterActivity
 import io.flutter.plugins.GeneratedPluginRegistrant
 import com.example.flutterchatquickblox.QuickBloxCredentials.Companion.AUTH_SECRET
 import com.example.flutterchatquickblox.utils.AppUtils
+import com.example.flutterchatquickblox.utils.CHAT_HISTORY_ITEMS_PER_PAGE
 import com.example.flutterchatquickblox.utils.ChatHelper
 import com.example.flutterchatquickblox.utils.ChatHelper.getCurrentUser
 import com.example.flutterchatquickblox.utils.ChatHelper.isLogged
@@ -31,13 +32,24 @@ import com.quickblox.users.QBUsers
 import com.quickblox.auth.session.QBSession
 import com.quickblox.auth.session.QBSessionParameters
 import com.quickblox.auth.session.QBSessionManager
+import com.quickblox.chat.model.QBChatDialog
+import com.quickblox.chat.model.QBChatMessage
+import com.quickblox.chat.model.QBDialogType
+import com.quickblox.core.request.QBRequestGetBuilder
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.PluginRegistry
+import org.jivesoftware.smack.SmackException
 
 
 class MainActivity : FlutterActivity() {
-    val userCurrent = QBUser("testuserlogin11", "testuserpassword")
-    private lateinit var currentUser: QBUser
     val TAG = "Checking"
+
+    val userCurrent = QBUser("testuserlogin12", "quickblox")
+    private lateinit var currentUser: QBUser
+    private lateinit var qbChatDialog: QBChatDialog
+    private lateinit var requestBuilder: QBRequestGetBuilder
+    private var skipPagination = 0
+    lateinit var channel: MethodChannel
 
     companion object {
         lateinit var instance: MainActivity
@@ -51,20 +63,102 @@ class MainActivity : FlutterActivity() {
         init()
         createQuickBloxUser()
 
-        MethodChannel(flutterView, "battery").setMethodCallHandler { call, result ->
-            if (call.method == "getBatteryLevel") {
-                val batteryLevel = getBatteryLevel()
+        channel = MethodChannel(flutterView, "quickbloxbridge")
 
-                if (batteryLevel != -1) {
-                    result.success(batteryLevel)
-                } else {
-                    result.error("Unavailable", "Battery level is not available", null)
+        channel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "getChatMessageEntered" -> {
+                    val message = call.argument<String>("message")
+                    AppUtils.logInfo("Entered response $message")
+                    sendChatMessage(message)
                 }
             }
         }
     }
 
-    private fun getBatteryLevel() : Int {
+    private fun sendChatMessage(message: String?) {
+        if (isLogged()) {
+            val chatMessage = QBChatMessage()
+            chatMessage.body = message
+
+            chatMessage.setSaveToHistory(true)
+            chatMessage.dateSent = System.currentTimeMillis() / 1000
+            chatMessage.isMarkable = true
+
+            try {
+                Log.d(TAG, "Sending Message with ID: " + chatMessage.id)
+                qbChatDialog.sendMessage(chatMessage)
+
+                if (qbChatDialog.type == QBDialogType.PRIVATE) {
+//                    showMessage(chatMessage)
+                    // Manual update listing here
+                }
+
+            } catch (e: SmackException.NotConnectedException) {
+                Log.w(TAG, e)
+            }
+
+        } else {
+            // Show login error or retry login
+        }
+    }
+
+    private fun loadChatHistory() {
+        ChatHelper.loadChatHistory(qbChatDialog, skipPagination, object : QBEntityCallback<ArrayList<QBChatMessage>> {
+            override fun onSuccess(messages: ArrayList<QBChatMessage>, args: Bundle?) {
+                // The newest messages should be in the end of list,
+                // so we need to reverse list to show messages in the right order
+                messages.reverse()
+
+                var messageArray = ArrayList<String>()
+                for ((index, value) in messages.withIndex()) {
+                    println("the element at $index is $value")
+                    messageArray.add(value.body)
+                    AppUtils.logInfo("Messages " + (messageArray?.get(index) ?: ""))
+                }
+                channel.invokeMethod("getChatHistory", messageArray)
+//                for (obj in messages) {
+////                    messageArray. = obj.body
+//                    AppUtils.logInfo("Messages " + obj.body)
+//                }
+
+//                if (checkAdapterInit) {
+//                    chatAdapter.addMessages(messages)
+//                } else {
+//                    checkAdapterInit = true
+//                    chatAdapter.setMessages(messages)
+//                    addDelayedMessagesToAdapter()
+//                }
+//                progressBar.visibility = View.GONE
+            }
+
+            override fun onError(e: QBResponseException) {
+//                progressBar.visibility = View.GONE
+//                skipPagination -= CHAT_HISTORY_ITEMS_PER_PAGE
+//                showErrorSnackbar(R.string.connection_error, e, null)
+            }
+        })
+        skipPagination += CHAT_HISTORY_ITEMS_PER_PAGE
+    }
+
+    private fun loadDialogsFromQb() {
+        ChatHelper.getDialogs(requestBuilder, object : QBEntityCallback<ArrayList<QBChatDialog>> {
+            override fun onSuccess(dialogs: ArrayList<QBChatDialog>, bundle: Bundle?) {
+//                DialogJoinerAsyncTask(this@DialogsActivity, dialogs, clearDialogHolder).execute()
+                AppUtils.logInfo("Dialog info " + dialogs[0].dialogId)
+                qbChatDialog = dialogs[0]
+                loadChatHistory()
+            }
+
+            override fun onError(e: QBResponseException) {
+                AppUtils.logInfo("QBResponseException ${e.message}")
+//                disableProgress()
+//                shortToast(e.message)
+            }
+        })
+    }
+
+    private fun getBatteryLevel(): Int {
         val batteryLevel: Int
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -91,6 +185,8 @@ class MainActivity : FlutterActivity() {
         val timeout = 10000
         QBHttpConnectionConfig.setConnectTimeout(timeout) //timeout value in milliseconds.
         QBHttpConnectionConfig.setReadTimeout(timeout) //timeout value in milliseconds.
+
+        requestBuilder = QBRequestGetBuilder()
     }
 
     private fun createQuickBloxUser() {
@@ -198,7 +294,8 @@ class MainActivity : FlutterActivity() {
                 Log.v(TAG, "Chat login onSuccess()")
                 if (isLogged()) {
                     currentUser = getCurrentUser()
-                    AppUtils.logInfo("Checking "+ currentUser.id)
+                    AppUtils.logInfo("Checking " + currentUser.id)
+                    loadDialogsFromQb()
                 } else {
                     AppUtils.logInfo("Checking fail")
 
@@ -210,4 +307,19 @@ class MainActivity : FlutterActivity() {
             }
         })
     }
+
+//    MethodChannel(flutterView, "quickbloxbridge").setMethodCallHandler { call, result ->
+//        if (call.method == "getChatMessageEntered") {
+//            val batteryLevel = getBatteryLevel()
+//
+//            val text = call.argument<String>("message")
+//            AppUtils.logInfo("Entered response $text")
+//
+//            if (batteryLevel != -1) {
+//                result.success(batteryLevel)
+//            } else {
+//                result.error("Unavailable", "Battery level is not available", null)
+//            }
+//        }
+//    }
 }

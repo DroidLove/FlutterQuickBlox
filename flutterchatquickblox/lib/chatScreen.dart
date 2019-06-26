@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:developer';
 
 class ChatWindow extends StatefulWidget {
   @override
@@ -20,17 +23,19 @@ class _ChatWindowState extends State<ChatWindow> {
     _messages = List<String>();
 
     _messages.add("Hi! How are you?");
-    _messages.add("I'm fine. thanks");
-    _messages.add("This is a multiline message.\nKeep reading!");
-    _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
-    _messages.add("Hi! How are you?");
-    _messages.add("I'm fine. thanks");
-    _messages.add("This is a multiline message.\nKeep reading!");
-    _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
+    // _messages.add("I'm fine. thanks");
+    // _messages.add("This is a multiline message.\nKeep reading!");
+    // _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
+    // _messages.add("Hi! How are you?");
+    // _messages.add("I'm fine. thanks");
+    // _messages.add("This is a multiline message.\nKeep reading!");
+    // _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
 
     textEditingController = TextEditingController();
 
     scrollController = ScrollController();
+
+    _getChatHistory();
 
     super.initState();
   }
@@ -38,7 +43,7 @@ class _ChatWindowState extends State<ChatWindow> {
   void handleSendMessage() {
     var text = textEditingController.value.text;
     textEditingController.clear();
-    _getBatteryInformation();
+    _getBatteryInformation(text);
 
     setState(() {
       _messages.add(text + " " + _batteryPercentage);
@@ -187,12 +192,14 @@ class _ChatWindowState extends State<ChatWindow> {
     );
   }
 
-  static const batteryChannel = const MethodChannel('battery');
+  static const _quickBloxChannel = const MethodChannel('quickbloxbridge');
 
-  Future<void> _getBatteryInformation() async {
+  Future<void> _getBatteryInformation(var text) async {
     String batteryPercentage;
     try {
-      var result = await batteryChannel.invokeMethod('getBatteryLevel');
+      var result = await _quickBloxChannel
+          .invokeMethod('getChatMessageEntered', {"message": text});
+
       batteryPercentage = 'Battery level at $result%';
     } on PlatformException catch (e) {
       batteryPercentage = "Failed to get battery level: '${e.message}'.";
@@ -201,6 +208,53 @@ class _ChatWindowState extends State<ChatWindow> {
     setState(() {
       _batteryPercentage = batteryPercentage;
     });
+  }
+
+  Future<void> _getChatHistory() async {
+    getChatHistoryFromNative().then((val) => setState(() {
+          _messages = val.cast<String>().toList();
+        }));
+
+    // messages =
+    //     _quickBloxChannel.setMethodCallHandler(myUtilsHandler(methodCall));
+    // messages = getChatHistory();
+    // try {
+    //   var result = await _quickBloxChannel.invokeMethod('getChatHistory');
+
+    //   if (result is List<String>) {
+    //     messages = result;
+    //     log('data: $messages[0]');
+    //   }
+    // } on PlatformException catch (e) {
+    //   // batteryPercentage = "Failed to get battery level: '${e.message}'.";
+    // }
+
+    print('Inside chat history');
+
+    // getChatHistoryFromNative();
+  }
+
+  Future<List> getChatHistoryFromNative() {
+    var completer = new Completer<List>();
+    _quickBloxChannel.setMethodCallHandler((MethodCall call) {
+      switch (call.method) {
+        case 'getChatHistory':
+          {
+            try {
+              List messages = call.arguments;
+              completer.complete(messages);
+              // List messages = call.arguments;
+
+              // setState(() {
+              //   _messages = messages.cast<String>();
+              // });
+            } catch (e) {
+              print(e.toString());
+            }
+          }
+      }
+    });
+    return completer.future;
   }
 }
 
