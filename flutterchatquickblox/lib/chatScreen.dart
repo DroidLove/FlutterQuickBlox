@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:developer';
+import 'methodData.dart';
 
 class ChatWindow extends StatefulWidget {
   @override
@@ -15,21 +16,13 @@ class _ChatWindowState extends State<ChatWindow> {
   TextEditingController textEditingController;
   ScrollController scrollController;
   String _batteryPercentage = 'Battery precentage';
+  static const _quickBloxChannel = const MethodChannel('quickbloxbridge');
 
   bool enableButton = false;
 
   @override
   void initState() {
     _messages = List<String>();
-
-    _messages.add("Hi! How are you?");
-    // _messages.add("I'm fine. thanks");
-    // _messages.add("This is a multiline message.\nKeep reading!");
-    // _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
-    // _messages.add("Hi! How are you?");
-    // _messages.add("I'm fine. thanks");
-    // _messages.add("This is a multiline message.\nKeep reading!");
-    // _messages.add("And this is a very..\nvery..\nlong..\nmessage.");
 
     textEditingController = TextEditingController();
 
@@ -43,10 +36,10 @@ class _ChatWindowState extends State<ChatWindow> {
   void handleSendMessage() {
     var text = textEditingController.value.text;
     textEditingController.clear();
-    _getBatteryInformation(text);
+    _getMessageEntered(text);
 
     setState(() {
-      _messages.add(text + " " + _batteryPercentage);
+      _messages.add(text);
       enableButton = false;
     });
 
@@ -142,46 +135,46 @@ class _ChatWindowState extends State<ChatWindow> {
 
                 Widget message;
 
-                if (reverse) {
-                  message = Stack(
-                    children: <Widget>[
-                      messagebody,
-                      Positioned(right: 0, bottom: 0, child: triangle),
-                    ],
-                  );
-                } else {
-                  message = Stack(
-                    children: <Widget>[
-                      Positioned(left: 0, bottom: 0, child: triangle),
-                      messagebody,
-                    ],
-                  );
-                }
+                // if (reverse) {
+                message = Stack(
+                  children: <Widget>[
+                    messagebody,
+                    Positioned(right: 0, bottom: 0, child: triangle),
+                  ],
+                );
+                // } else {
+                //   message = Stack(
+                //     children: <Widget>[
+                //       Positioned(left: 0, bottom: 0, child: triangle),
+                //       messagebody,
+                //     ],
+                //   );
+                // }
 
-                if (reverse) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: message,
-                      ),
-                      avatar,
-                    ],
-                  );
-                } else {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: <Widget>[
-                      avatar,
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: message,
-                      ),
-                    ],
-                  );
-                }
+                // if (reverse) {
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: message,
+                    ),
+                    avatar,
+                  ],
+                );
+                // } else {
+                //   return Row(
+                //     crossAxisAlignment: CrossAxisAlignment.end,
+                //     children: <Widget>[
+                //       avatar,
+                //       Padding(
+                //         padding: const EdgeInsets.all(8.0),
+                //         child: message,
+                //       ),
+                //     ],
+                //   );
+                // }
               },
             ),
           ),
@@ -192,9 +185,7 @@ class _ChatWindowState extends State<ChatWindow> {
     );
   }
 
-  static const _quickBloxChannel = const MethodChannel('quickbloxbridge');
-
-  Future<void> _getBatteryInformation(var text) async {
+  Future<void> _getMessageEntered(var text) async {
     String batteryPercentage;
     try {
       var result = await _quickBloxChannel
@@ -211,43 +202,72 @@ class _ChatWindowState extends State<ChatWindow> {
   }
 
   Future<void> _getChatHistory() async {
-    getChatHistoryFromNative().then((val) => setState(() {
-          _messages = val.cast<String>().toList();
+    getDataFromNative().then((val) => setState(() {
+          MethodData methodData = val;
+          try {
+            switch (methodData.getMethodName) {
+              case 'getChatHistory':
+                _messages = methodData.getDataPassed;
+                break;
+              case 'updateChatListing':
+                _messages.add(methodData.getDataPassed);
+                break;
+            }
+          } catch (e) {
+            print(e.toString());
+          }
         }));
 
-    // messages =
-    //     _quickBloxChannel.setMethodCallHandler(myUtilsHandler(methodCall));
-    // messages = getChatHistory();
-    // try {
-    //   var result = await _quickBloxChannel.invokeMethod('getChatHistory');
-
-    //   if (result is List<String>) {
-    //     messages = result;
-    //     log('data: $messages[0]');
-    //   }
-    // } on PlatformException catch (e) {
-    //   // batteryPercentage = "Failed to get battery level: '${e.message}'.";
-    // }
-
     print('Inside chat history');
-
-    // getChatHistoryFromNative();
   }
 
-  Future<List> getChatHistoryFromNative() {
-    var completer = new Completer<List>();
+  Future<void> _updateChatListing() async {
+    getChatMessageReceived().then((val) => setState(() {
+          // _messages = val.cast<String>().toList();
+          _messages.add(val);
+        }));
+  }
+
+  Future<MethodData> getDataFromNative() {
+    var completer = Completer<dynamic>();
     _quickBloxChannel.setMethodCallHandler((MethodCall call) {
       switch (call.method) {
         case 'getChatHistory':
           {
             try {
               List messages = call.arguments;
-              completer.complete(messages);
-              // List messages = call.arguments;
+              MethodData methodData = MethodData(call.method, messages);
+              completer.complete(methodData);
+            } catch (e) {
+              print(e.toString());
+            }
+            break;
+          }
+        case 'updateChatListing':
+          {
+            try {
+              String receivedMessage = call.arguments;
+              MethodData methodData = MethodData(call.method, receivedMessage);
+              completer.complete(methodData);
+            } catch (e) {
+              print(e.toString());
+            }
+            break;
+          }
+      }
+    });
+    return completer.future;
+  }
 
-              // setState(() {
-              //   _messages = messages.cast<String>();
-              // });
+  Future<String> getChatMessageReceived() {
+    var completer = new Completer<String>();
+    _quickBloxChannel.setMethodCallHandler((MethodCall call) {
+      switch (call.method) {
+        case 'updateChatListing':
+          {
+            try {
+              String receivedMessage = call.arguments;
+              completer.complete(receivedMessage);
             } catch (e) {
               print(e.toString());
             }

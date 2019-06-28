@@ -32,13 +32,16 @@ import com.quickblox.users.QBUsers
 import com.quickblox.auth.session.QBSession
 import com.quickblox.auth.session.QBSessionParameters
 import com.quickblox.auth.session.QBSessionManager
+import com.quickblox.chat.QBChatService
 import com.quickblox.chat.model.QBChatDialog
 import com.quickblox.chat.model.QBChatMessage
 import com.quickblox.chat.model.QBDialogType
 import com.quickblox.core.request.QBRequestGetBuilder
+import com.quickblox.sample.chat.kotlin.utils.qb.QbChatDialogMessageListenerImpl
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import org.jivesoftware.smack.SmackException
+import org.jivesoftware.smack.chat.ChatMessageListener
 
 
 class MainActivity : FlutterActivity() {
@@ -50,6 +53,7 @@ class MainActivity : FlutterActivity() {
     private lateinit var requestBuilder: QBRequestGetBuilder
     private var skipPagination = 0
     lateinit var channel: MethodChannel
+    private var chatMessageListener: ChatMessageListener = ChatMessageListener()
 
     companion object {
         lateinit var instance: MainActivity
@@ -74,6 +78,16 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+    }
+
+    private fun initChatDailog() {
+        try {
+            qbChatDialog.initForChat(QBChatService.getInstance())
+        } catch (e: IllegalStateException) {
+            Log.v(TAG, "The error registerCallback fro chat. Error message is : " + e.message)
+            finish()
+        }
+        qbChatDialog.addMessageListener(chatMessageListener)
     }
 
     private fun sendChatMessage(message: String?) {
@@ -117,25 +131,13 @@ class MainActivity : FlutterActivity() {
                     AppUtils.logInfo("Messages " + (messageArray?.get(index) ?: ""))
                 }
                 channel.invokeMethod("getChatHistory", messageArray)
-//                for (obj in messages) {
-////                    messageArray. = obj.body
-//                    AppUtils.logInfo("Messages " + obj.body)
-//                }
-
-//                if (checkAdapterInit) {
-//                    chatAdapter.addMessages(messages)
-//                } else {
-//                    checkAdapterInit = true
-//                    chatAdapter.setMessages(messages)
-//                    addDelayedMessagesToAdapter()
-//                }
-//                progressBar.visibility = View.GONE
             }
 
             override fun onError(e: QBResponseException) {
 //                progressBar.visibility = View.GONE
 //                skipPagination -= CHAT_HISTORY_ITEMS_PER_PAGE
-//                showErrorSnackbar(R.string.connection_error, e, null)
+//                showErrorSnackbar(R.string.connection_error, e, null)v
+                AppUtils.logInfo("" + e.message)
             }
         })
         skipPagination += CHAT_HISTORY_ITEMS_PER_PAGE
@@ -147,6 +149,9 @@ class MainActivity : FlutterActivity() {
 //                DialogJoinerAsyncTask(this@DialogsActivity, dialogs, clearDialogHolder).execute()
                 AppUtils.logInfo("Dialog info " + dialogs[0].dialogId)
                 qbChatDialog = dialogs[0]
+                //Todo: Get count from database instead
+                initChatDailog()
+
                 loadChatHistory()
             }
 
@@ -190,7 +195,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun createQuickBloxUser() {
-//        signUpQuickBloxUser()
+//      signUpQuickBloxUser()
         signInQuickBloxUser()
         trackQuickBloxUser()
     }
@@ -306,6 +311,16 @@ class MainActivity : FlutterActivity() {
                 Log.w(TAG, "Chat login onError(): $e")
             }
         })
+    }
+
+    private inner class ChatMessageListener : QbChatDialogMessageListenerImpl() {
+        override fun processMessage(s: String, qbChatMessage: QBChatMessage, integer: Int?) {
+            Log.d(TAG, "Processing Received Message: " + qbChatMessage.body)
+//            showMessage(qbChatMessage)
+            // Update the dart listing in the ui
+            var receivedMessage = qbChatMessage.body
+            channel.invokeMethod("updateChatListing", receivedMessage)
+        }
     }
 
 //    MethodChannel(flutterView, "quickbloxbridge").setMethodCallHandler { call, result ->
