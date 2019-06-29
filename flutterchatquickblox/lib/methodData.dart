@@ -2,7 +2,7 @@ class MethodData {
   dynamic dataPassed;
   String methodName;
 
-  MethodData(methodName, dataPassed);
+  MethodData(this.methodName, this.dataPassed);
 
   dynamic get getDataPassed {
     return dataPassed;

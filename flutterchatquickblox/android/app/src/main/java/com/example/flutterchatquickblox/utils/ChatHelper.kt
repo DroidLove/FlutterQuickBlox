@@ -37,6 +37,9 @@ const val DIALOG_ITEMS_PER_PAGE = 100
 const val CHAT_HISTORY_ITEMS_PER_PAGE = 50
 private const val CHAT_HISTORY_ITEMS_SORT_FIELD = "date_sent"
 
+
+// "chatdetails":{"userid":"51027335","advisoruserid":"71901328","userlogin":"VSH38143354","password":"2b57a99ac8bbdc7e467c51e06abec543","buddylistid":"5c496312a0eb470590271770"}}}
+
 object ChatHelper {
     private val TAG = ChatHelper::class.java.simpleName
 
@@ -255,6 +258,7 @@ object ChatHelper {
                 })
     }
 
+    // For the VIP app use this as we are getting the buddylistid
     fun getDialogById(dialogId: String, callback: QBEntityCallback<QBChatDialog>) {
         QBRestChatService.getChatDialogById(dialogId).performAsync(callback)
     }

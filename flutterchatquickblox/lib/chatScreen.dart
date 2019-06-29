@@ -202,34 +202,12 @@ class _ChatWindowState extends State<ChatWindow> {
   }
 
   Future<void> _getChatHistory() async {
-    getDataFromNative().then((val) => setState(() {
-          MethodData methodData = val;
-          try {
-            switch (methodData.getMethodName) {
-              case 'getChatHistory':
-                _messages = methodData.getDataPassed;
-                break;
-              case 'updateChatListing':
-                _messages.add(methodData.getDataPassed);
-                break;
-            }
-          } catch (e) {
-            print(e.toString());
-          }
-        }));
+    getDataFromNative();
 
     print('Inside chat history');
   }
 
-  Future<void> _updateChatListing() async {
-    getChatMessageReceived().then((val) => setState(() {
-          // _messages = val.cast<String>().toList();
-          _messages.add(val);
-        }));
-  }
-
-  Future<MethodData> getDataFromNative() {
-    var completer = Completer<dynamic>();
+  void getDataFromNative() {
     _quickBloxChannel.setMethodCallHandler((MethodCall call) {
       switch (call.method) {
         case 'getChatHistory':
@@ -237,7 +215,10 @@ class _ChatWindowState extends State<ChatWindow> {
             try {
               List messages = call.arguments;
               MethodData methodData = MethodData(call.method, messages);
-              completer.complete(methodData);
+
+              populateChatListing(methodData).then((val) => setState(() {
+                    _messages = val.getDataPassed.cast<String>().toList();
+                  }));
             } catch (e) {
               print(e.toString());
             }
@@ -248,7 +229,9 @@ class _ChatWindowState extends State<ChatWindow> {
             try {
               String receivedMessage = call.arguments;
               MethodData methodData = MethodData(call.method, receivedMessage);
-              completer.complete(methodData);
+              populateChatListing(methodData).then((val) => setState(() {
+                    _messages.add(val.getDataPassed);
+                  }));
             } catch (e) {
               print(e.toString());
             }
@@ -256,24 +239,11 @@ class _ChatWindowState extends State<ChatWindow> {
           }
       }
     });
-    return completer.future;
   }
 
-  Future<String> getChatMessageReceived() {
-    var completer = new Completer<String>();
-    _quickBloxChannel.setMethodCallHandler((MethodCall call) {
-      switch (call.method) {
-        case 'updateChatListing':
-          {
-            try {
-              String receivedMessage = call.arguments;
-              completer.complete(receivedMessage);
-            } catch (e) {
-              print(e.toString());
-            }
-          }
-      }
-    });
+  Future<dynamic> populateChatListing(MethodData methodData) {
+    var completer = Completer<dynamic>();
+    completer.complete(methodData);
     return completer.future;
   }
 }
