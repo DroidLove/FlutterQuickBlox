@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:developer';
 import 'methodData.dart';
+import 'chatListingData.dart';
 
 class ChatWindow extends StatefulWidget {
   @override
@@ -11,7 +12,7 @@ class ChatWindow extends StatefulWidget {
 }
 
 class _ChatWindowState extends State<ChatWindow> {
-  List<String> _messages;
+  List<ChatListingData> _messages;
 
   TextEditingController textEditingController;
   ScrollController scrollController;
@@ -22,7 +23,7 @@ class _ChatWindowState extends State<ChatWindow> {
 
   @override
   void initState() {
-    _messages = List<String>();
+    _messages = List<ChatListingData>();
 
     textEditingController = TextEditingController();
 
@@ -39,7 +40,9 @@ class _ChatWindowState extends State<ChatWindow> {
     _getMessageEntered(text);
 
     setState(() {
-      _messages.add(text);
+      ChatListingData chatListingDataObj = ChatListingData(text, true);
+
+      _messages.add(chatListingDataObj);
       enableButton = false;
     });
 
@@ -101,11 +104,11 @@ class _ChatWindowState extends State<ChatWindow> {
               controller: scrollController,
               itemCount: _messages.length,
               itemBuilder: (context, index) {
-                bool reverse = false;
+                // bool reverse = false;
 
-                if (index % 2 == 0) {
-                  reverse = true;
-                }
+                // if (index % 2 == 0) {
+                //   reverse = true;
+                // }
 
                 var avatar = Padding(
                   padding:
@@ -128,53 +131,53 @@ class _ChatWindowState extends State<ChatWindow> {
                     alignment: Alignment.centerLeft,
                     child: Padding(
                       padding: const EdgeInsets.all(12.0),
-                      child: Text(_messages[index]),
+                      child: Text(_messages[index].chatMessage),
                     ),
                   ),
                 );
 
                 Widget message;
 
-                // if (reverse) {
-                message = Stack(
-                  children: <Widget>[
-                    messagebody,
-                    Positioned(right: 0, bottom: 0, child: triangle),
-                  ],
-                );
-                // } else {
-                //   message = Stack(
-                //     children: <Widget>[
-                //       Positioned(left: 0, bottom: 0, child: triangle),
-                //       messagebody,
-                //     ],
-                //   );
-                // }
+                if (_messages[index].isMessageOfCurrentUser) {
+                  message = Stack(
+                    children: <Widget>[
+                      messagebody,
+                      Positioned(right: 0, bottom: 0, child: triangle),
+                    ],
+                  );
+                } else {
+                  message = Stack(
+                    children: <Widget>[
+                      Positioned(left: 0, bottom: 0, child: triangle),
+                      messagebody,
+                    ],
+                  );
+                }
 
-                // if (reverse) {
-                return Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: <Widget>[
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: message,
-                    ),
-                    avatar,
-                  ],
-                );
-                // } else {
-                //   return Row(
-                //     crossAxisAlignment: CrossAxisAlignment.end,
-                //     children: <Widget>[
-                //       avatar,
-                //       Padding(
-                //         padding: const EdgeInsets.all(8.0),
-                //         child: message,
-                //       ),
-                //     ],
-                //   );
-                // }
+                if (_messages[index].isMessageOfCurrentUser) {
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: message,
+                      ),
+                      avatar,
+                    ],
+                  );
+                } else {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: <Widget>[
+                      avatar,
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: message,
+                      ),
+                    ],
+                  );
+                }
               },
             ),
           ),
@@ -213,11 +216,27 @@ class _ChatWindowState extends State<ChatWindow> {
         case 'getChatHistory':
           {
             try {
-              List messages = call.arguments;
-              MethodData methodData = MethodData(call.method, messages);
+              var argumentsCalls =
+                  Map<String, dynamic>.from(call.arguments).entries.toList();
 
-              populateChatListing(methodData).then((val) => setState(() {
-                    _messages = val.getDataPassed.cast<String>().toList();
+              List chatMessageList = argumentsCalls[0].value;
+              List isCurrentUserMessageList = argumentsCalls[1].value;
+
+              List<ChatListingData> chatListingDataList = List();
+
+              for (var i = 0; i < chatMessageList.length; i++) {
+                ChatListingData chatListingDataObj = ChatListingData(
+                    chatMessageList[i], isCurrentUserMessageList[i]);
+                chatListingDataList.add(chatListingDataObj);
+              }
+
+              // List messages = call.arguments;
+              MethodData methodData =
+                  MethodData(call.method, chatListingDataList);
+
+              enableMethodDataFuture(methodData).then((val) => setState(() {
+                    _messages =
+                        val.getDataPassed.cast<ChatListingData>().toList();
                   }));
             } catch (e) {
               print(e.toString());
@@ -227,9 +246,16 @@ class _ChatWindowState extends State<ChatWindow> {
         case 'updateChatListing':
           {
             try {
-              String receivedMessage = call.arguments;
-              MethodData methodData = MethodData(call.method, receivedMessage);
-              populateChatListing(methodData).then((val) => setState(() {
+              var argumentsCalls =
+                  Map<String, dynamic>.from(call.arguments).entries.toList();
+
+              ChatListingData chatListingDataObj = ChatListingData(
+                  argumentsCalls[0].value, argumentsCalls[1].value);
+
+              MethodData methodData =
+                  MethodData(call.method, chatListingDataObj);
+
+              enableMethodDataFuture(methodData).then((val) => setState(() {
                     _messages.add(val.getDataPassed);
                   }));
             } catch (e) {
@@ -241,7 +267,7 @@ class _ChatWindowState extends State<ChatWindow> {
     });
   }
 
-  Future<dynamic> populateChatListing(MethodData methodData) {
+  Future<dynamic> enableMethodDataFuture(MethodData methodData) {
     var completer = Completer<dynamic>();
     completer.complete(methodData);
     return completer.future;

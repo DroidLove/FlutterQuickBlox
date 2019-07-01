@@ -42,12 +42,15 @@ import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry
 import org.jivesoftware.smack.SmackException
 import org.jivesoftware.smack.chat.ChatMessageListener
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 
 
 class MainActivity : FlutterActivity() {
     val TAG = "Checking"
-
-    val userCurrent = QBUser("testuserlogin12", "quickblox")
+//    testuserpassword
+    val userCurrent = QBUser("testuserlogin10", "testuserpassword")
     private lateinit var currentUser: QBUser
     private lateinit var qbChatDialog: QBChatDialog
     private lateinit var requestBuilder: QBRequestGetBuilder
@@ -80,7 +83,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun initChatDailog() {
+    private fun initChatDialog() {
         try {
             qbChatDialog.initForChat(QBChatService.getInstance())
         } catch (e: IllegalStateException) {
@@ -125,12 +128,22 @@ class MainActivity : FlutterActivity() {
                 messages.reverse()
 
                 var messageArray = ArrayList<String>()
+                var isMessageCurrentUserArray = ArrayList<Boolean>()
                 for ((index, value) in messages.withIndex()) {
                     println("the element at $index is $value")
+
+                    var isMessageOfCurrentUser = false
+                    if (value.senderId == currentUser.id) {
+                        isMessageOfCurrentUser = true
+                    }
+//                    val chatListingModel = ChatListingModel(value.body, isMessageOfCurrentUser)
+
                     messageArray.add(value.body)
+                    isMessageCurrentUserArray.add(isMessageOfCurrentUser)
                     AppUtils.logInfo("Messages " + (messageArray?.get(index) ?: ""))
                 }
-                channel.invokeMethod("getChatHistory", messageArray)
+                channel.invokeMethod("getChatHistory", hashMapOf( "messageList" to messageArray,
+                        "isCurrentUserMessage" to isMessageCurrentUserArray))
             }
 
             override fun onError(e: QBResponseException) {
@@ -150,7 +163,7 @@ class MainActivity : FlutterActivity() {
                 AppUtils.logInfo("Dialog info " + dialogs[0].dialogId)
                 qbChatDialog = dialogs[0]
                 //Todo: Get count from database instead
-                initChatDailog()
+                initChatDialog()
 
                 loadChatHistory()
             }
@@ -187,7 +200,7 @@ class MainActivity : FlutterActivity() {
         QBSettings.getInstance().init(applicationContext, APP_ID, AUTH_KEY, AUTH_SECRET)
         QBSettings.getInstance().accountKey = ACCOUNT_KEY
 
-        val timeout = 10000
+        val timeout = 90000
         QBHttpConnectionConfig.setConnectTimeout(timeout) //timeout value in milliseconds.
         QBHttpConnectionConfig.setReadTimeout(timeout) //timeout value in milliseconds.
 
@@ -319,7 +332,10 @@ class MainActivity : FlutterActivity() {
 //            showMessage(qbChatMessage)
             // Update the dart listing in the ui
             var receivedMessage = qbChatMessage.body
-            channel.invokeMethod("updateChatListing", receivedMessage)
+
+
+            channel.invokeMethod("updateChatListing", hashMapOf( "messageReceived" to receivedMessage,
+                    "isCurrentUserMessage" to false))
         }
     }
 
